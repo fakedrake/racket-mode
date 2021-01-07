@@ -79,8 +79,9 @@ This is nicer than `racket-show-pos-tip' because it:
   - Performs well when `x-gtk-use-system-tooltips' is nil.
 
 On the other hand, this does not look as nice when displaying
-text that spans multiple lines. In that case, we simply
-left-justify everything and do not draw any border."
+text that spans multiple lines or is too wide to fit the window.
+In that case, we simply left-justify everything and do not draw
+any border."
   (racket--delete-pseudo-tooltip-overlays)
   (when (racket--non-empty-string-p v)
     (setq-local racket--pseudo-tooltip-overlays
@@ -93,16 +94,17 @@ left-justify everything and do not draw any border."
 
 (defun racket--make-pseudo-tooltip-overlays (text pos)
   "Create one or more overlays for a pseudo tooltip, returning them in a list."
-  (if (string-match-p "\n" text)
-      ;; When text is multi-line, we don't try to simulate a tooltip,
-      ;; exactly. Instead we simply "insert" the multiple lines left
+  (if (or (string-match-p "\n" text)
+          (< (window-width) (+ (length text) 2)))
+      ;; When text is multi-line or too wide, we don't try to simulate
+      ;; a tooltip, exactly. Instead we simply "insert" left
       ;; justified, before the next line.
       (let* ((text (propertize (concat text "\n")
                                'face
                                `(:inherit default
                                  :foreground ,(face-foreground 'tooltip)
                                  :background ,(face-background 'tooltip))))
-             (eol (save-excursion (goto-char pos) (point-at-eol)))
+             (eol (save-excursion (goto-char pos) (end-of-visual-line) (point)))
              (ov (make-overlay eol (1+ eol))))
         (overlay-put ov 'after-string text)
         (list ov))
@@ -117,14 +119,14 @@ left-justify everything and do not draw any border."
                                  :background ,(face-background 'tooltip)
                                  :box (:line-width -1))))
          (text-len (length text))
-         (bol      (save-excursion (goto-char pos) (point-at-bol)))
-         (eol      (save-excursion (goto-char pos) (point-at-eol)))
+         (bol      (save-excursion (goto-char pos) (beginning-of-visual-line) (point)))
+         (eol      (save-excursion (goto-char pos) (end-of-visual-line) (point)))
          ;; Position the tooltip on the next line, indented to `pos'
          ;; -- but not so far it ends off right edge.
          (indent   (max 0 (min (- pos bol)
-                               (- (window-width) text-len))))
+                               (- (window-width) text-len 2))))
          (beg      (+ eol indent 1))
-         (next-eol (save-excursion (goto-char (1+ eol)) (point-at-eol))))
+         (next-eol (save-excursion (goto-char (1+ eol)) (end-of-visual-line) (point))))
       ;; If the tip starts before next-eol, create an overlay with the
       ;; 'display property, covering the span of the tooltip text but
       ;; not beyond next-eol.
