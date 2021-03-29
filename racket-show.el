@@ -18,8 +18,9 @@
 
 (require 'racket-util)
 (require 'racket-custom)
-(require 'pos-tip)
 (require 'cl-macs)
+(require 'face-remap)
+(require 'pos-tip)
 
 (defun racket-show (val &optional pos)
   "See the variable `racket-show-functions' for information about VAL and POS."
@@ -95,7 +96,8 @@ any border."
 (defun racket--make-pseudo-tooltip-overlays (text pos)
   "Create one or more overlays for a pseudo tooltip, returning them in a list."
   (if (or (string-match-p "\n" text)
-          (< (window-width) (+ (length text) 2)))
+          (< (window-width) (+ (string-width text) 2))
+          (and text-scale-mode (< 0 text-scale-mode-amount)))
       ;; When text is multi-line or too wide, we don't try to simulate
       ;; a tooltip, exactly. Instead we simply "insert" left
       ;; justified, before the next line.
